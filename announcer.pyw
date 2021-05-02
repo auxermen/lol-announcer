@@ -2,12 +2,12 @@ import requests
 import time
 import urllib3
 import audioplayer
-from os import path
+from os import path, _exit
 import random
 from tkinter import *
 import threading
 
-SOUNDS_FOLDER = path.join(path.dirname(__file__), "sounds/")
+SOUNDS_FOLDER = "sounds/"
 EVENT_SOUNDS = {
     "Welcome": ["welcometosummonersrift.mp3"],
     "MinionsSpawningSoon": ["30secondsuntilminionsspawn.mp3"],
@@ -46,6 +46,18 @@ def play_event_sound(event):
     ap.volume = volume
     ap.play(block=True)
 
+def update_volume(v):
+    global volume
+    volume = int(v)
+    
+def play_random_sound():
+    play_event_sound(random.choice(list(EVENT_SOUNDS.keys())))
+    
+def close_script():
+    gui.quit()
+    gui.destroy()
+    _exit(1)
+    
 # Ignore the Unverified HTTPS request warning.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -65,14 +77,10 @@ try:
 except:
     pass
 
-def update_volume(v):
-    global volume
-    volume = int(v)
-    
-def play_random_sound():
-    play_event_sound(random.choice(list(EVENT_SOUNDS.keys())))
-
 def announcer_loop():
+    # File for logging exceptions.
+    log_file = open("log.txt", "w")
+    
     global previous_game_time
     global game_time
     global previous_event_count
@@ -234,15 +242,22 @@ def announcer_loop():
         except Exception as e:
             # Probably not in game or some other catastrophic error.
             print(e)
+            log_file.write(repr(e) + "\n")
+            log_file.flush()
+            time.sleep(5)
+            
 
-
-# GUI that shows a slider for sound volume control.
-master = Tk()
-volume_slider = Scale(master, from_=0, to=100, orient=HORIZONTAL, command=update_volume)
-volume_slider.set(100)
-volume_slider.pack()
-Button(master, text='Test volume', command=play_random_sound).pack()
-x = threading.Thread(target=announcer_loop)
-x.start()
-mainloop()
+if __name__ == '__main__':
+    # GUI that shows a slider for sound volume control and a button for testing volume.
+    gui = Tk()
+    gui.geometry("250x100")
+    gui.title("LoL Announcer")
+    gui.protocol("WM_DELETE_WINDOW", close_script)
+    volume_slider = Scale(gui, from_=0, to=100, orient=HORIZONTAL, command=update_volume)
+    volume_slider.set(100)
+    volume_slider.pack()
+    Button(gui, text='Test volume', command=play_random_sound).pack()
+    announcer_thread = threading.Thread(target=announcer_loop)
+    announcer_thread.start()
+    mainloop()
 
